@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Workshop Buchung</title>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --primary-hover: #004494;
+            --bg-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .auth-card {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        p.description {
+            text-align: center;
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .submit-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .submit-btn:disabled {
+            background-color: #888;
+            cursor: not-allowed;
+        }
+
+        #error-msg {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-card">
+        <h2>Anmeldung</h2>
+        <p class="description">Gib deine schulische E-Mail-Adresse ein. Wir senden dir einen Einmalcode für den Login.</p>
+        
+        <form id="login-form" onsubmit="requestMagicLink(event)">
+            <div class="form-group">
+                <label for="email">E-Mail Adresse</label>
+                <!-- pattern sorgt dafür, dass der Browser direkt blockiert, wenn es nicht @luinet.de ist -->
+                <input type="email" id="email" required pattern=".*@luinet\.de$" placeholder="name@luinet.de">
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submit-btn">Code anfordern</button>
+            <div id="error-msg">Fehler beim Senden der E-Mail.</div>
+        </form>
+    </div>
+
+    <script>
+        // TRAGE HIER DEINE SUPABASE DATEN EIN:
+        const SUPABASE_URL = 'https://yrqjgyjsivurlcrwnuhp.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_9diy53NKbmLhqWWkynZ0mg_UMJgtB2e';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function requestMagicLink(event) {
+            event.preventDefault();
+            
+            let email = document.getElementById('email').value.trim();
+            email = email.toLowerCase(); // Sicherheitshalber alles kleinschreiben
+            
+            const btn = document.getElementById('submit-btn');
+            const errorMsg = document.getElementById('error-msg');
+            
+            // HARTER FRONTEND CHECK AUF DIE DOMAIN
+            if (!email.endsWith('@luinet.de')) {
+                errorMsg.innerText = "Zugriff verweigert: Bitte nutze deine schulische @luinet.de E-Mail-Adresse.";
+                errorMsg.style.display = 'block';
+                return; // Bricht das Skript ab, Supabase wird gar nicht erst kontaktiert
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Sende Code...";
+            errorMsg.style.display = 'none';
+
+            // OTP via Supabase anfragen (erstellt User, falls nicht existent)
+            const { error } = await supabaseClient.auth.signInWithOtp({
+                email: email,
+                options: {
+                    shouldCreateUser: true
+                }
+            });
+
+            if (error) {
+                console.error(error);
+                errorMsg.innerText = "Fehler: " + error.message;
+                errorMsg.style.display = 'block';
+                btn.disabled = false;
+                btn.innerText = "Code anfordern";
+            } else {
+                sessionStorage.setItem('authEmail', email);
+                // Weiterleitung zur Code-Eingabe
+                window.location.href = 'verify.html';
+            }
+        }
+    </script>
+</body>
+</html>
