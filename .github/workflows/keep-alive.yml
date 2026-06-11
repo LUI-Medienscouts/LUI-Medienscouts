@@ -1,0 +1,21 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Führt das Skript jeden Tag um 08:00 Uhr UTC (ca. 09:00 Uhr oder 10:00 Uhr deutscher Zeit) aus
+    - cron: '0 8 * * *'
+  # Erlaubt es, das Skript bei Bedarf auch manuell über einen Button zu starten
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Supabase API
+        run: |
+          echo "Pinge Supabase an, um das Projekt wach zu halten..."
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          "${{ secrets.SUPABASE_URL }}/rest/v1/"
