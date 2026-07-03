@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Workshop Buchung</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --primary-hover: #004494;
+            --bg-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .auth-card {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        p.description {
+            text-align: center;
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            .form-group input {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                box-sizing: border-box;
+                font-size: 16px;
+            }
+
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+            .submit-btn:hover {
+                background-color: var(--primary-hover);
+            }
+
+            .submit-btn:disabled {
+                background-color: #888;
+                cursor: not-allowed;
+            }
+
+        /* CUSTOM MODAL POPUP */
+        #custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .custom-modal-box {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+            .custom-modal-box h3 {
+                margin-top: 0;
+                color: var(--primary-color);
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+
+            .custom-modal-box p {
+                font-size: 15px;
+                margin-bottom: 25px;
+                color: #444;
+                line-height: 1.5;
+            }
+
+            .custom-modal-box button {
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                transition: background 0.2s;
+            }
+
+                .custom-modal-box button:hover {
+                    background: var(--primary-hover);
+                }
+    </style>
+</head>
+<body>
+    <a href="scout_login.html" style="position: absolute; top: 15px; right: 20px; color: #ccc; text-decoration: none; font-size: 12px; font-family: sans-serif; transition: color 0.2s;" onmouseover="this.style.color='#666'" onmouseout="this.style.color='#ccc'">Medienscout Login</a>
+
+    <div class="auth-card">
+        <h2>Anmeldung</h2>
+        <p class="description">Gib deine schulische E-Mail-Adresse ein. Wir senden dir einen Einmalcode für den Login.</p>
+
+        <form id="login-form" onsubmit="requestMagicLink(event)">
+            <div class="form-group">
+                <label for="email">E-Mail Adresse</label>
+                <input type="email" id="email" required pattern="^[a-zA-Z0-9._%+-]+@luinet\.de$" placeholder="name@luinet.de">
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">Code anfordern</button>
+        </form>
+    </div>
+
+    <!-- CUSTOM MODAL -->
+    <div id="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <h3 id="modal-title">Hinweis</h3>
+            <p id="modal-msg">Nachricht</p>
+            <button onclick="hideModal()">Verstanden</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://yrqjgyjsivurlcrwnuhp.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_9diy53NKbmLhqWWkynZ0mg_UMJgtB2e';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function showModal(title, msg) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerText = msg;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('custom-modal-overlay').style.display = 'none'; }
+
+        async function requestMagicLink(event) {
+            event.preventDefault();
+
+            let email = document.getElementById('email').value.trim().toLowerCase();
+            const btn = document.getElementById('submit-btn');
+            const domainRegex = /^[a-zA-Z0-9._%+-]+@luinet\.de$/;
+
+            if (!domainRegex.test(email)) {
+                showModal("Fehlerhafte Eingabe", "Bitte nutze eine gültige Schul-E-Mail-Adresse (@luinet.de).");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Sende Code...";
+
+            const { data, error } = await supabaseClient.auth.signInWithOtp({
+                email: email,
+                options: { shouldCreateUser: true }
+            });
+
+            if (error) {
+                console.error(error);
+                showModal("Fehler beim Senden", error.message);
+                btn.disabled = false;
+                btn.innerText = "Code anfordern";
+            } else {
+                sessionStorage.setItem('authEmail', email);
+                window.location.href = 'verify.html';
+            }
+        }
+    </script>
+</body>
+</html>

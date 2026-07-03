@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interner Login - Medienscouts</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-color: #681da8;
+            --primary-hover: #4a148c;
+            --bg-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .auth-card {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        p.description {
+            text-align: center;
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            .form-group input {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                box-sizing: border-box;
+                font-size: 16px;
+            }
+
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+            .submit-btn:hover {
+                background-color: var(--primary-hover);
+            }
+
+            .submit-btn:disabled {
+                background-color: #888;
+                cursor: not-allowed;
+            }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #666;
+            text-decoration: none;
+        }
+
+            .back-link:hover {
+                text-decoration: underline;
+            }
+
+        #custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .custom-modal-box {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+            .custom-modal-box h3 {
+                margin-top: 0;
+                color: var(--primary-color);
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+
+            .custom-modal-box p {
+                font-size: 15px;
+                margin-bottom: 25px;
+                color: #444;
+                line-height: 1.5;
+            }
+
+            .custom-modal-box button {
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                transition: background 0.2s;
+            }
+
+                .custom-modal-box button:hover {
+                    background: var(--primary-hover);
+                }
+    </style>
+</head>
+<body>
+
+    <div class="auth-card">
+        <h2>Interner Bereich</h2>
+        <p class="description">Bitte gib das Gruppenpasswort der Medienscouts ein, um auf das interne Dashboard zuzugreifen.</p>
+
+        <form onsubmit="handleScoutLogin(event)">
+            <div class="form-group">
+                <label for="password">Gruppenpasswort</label>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">Einloggen</button>
+        </form>
+
+        <a href="index.html" class="back-link">&larr; Zurück zum normalen Login</a>
+    </div>
+
+    <!-- CUSTOM MODAL -->
+    <div id="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <h3 id="modal-title">Hinweis</h3>
+            <p id="modal-msg">Nachricht</p>
+            <button onclick="hideModal()">Verstanden</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://yrqjgyjsivurlcrwnuhp.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_9diy53NKbmLhqWWkynZ0mg_UMJgtB2e';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function showModal(title, msg) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerText = msg;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('custom-modal-overlay').style.display = 'none'; }
+
+        async function handleScoutLogin(event) {
+            event.preventDefault();
+
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.innerText = "Logge ein...";
+
+            // 1. ALTE SESSION ZERSTÖREN (Mit der Brechstange)
+            await supabaseClient.auth.signOut();
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // 2. Mit dem Scout-Account einloggen
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: 'medienscouts@luinet.de',
+                password: password
+            });
+
+            if (error) {
+                console.error(error);
+                showModal("Zugriff verweigert", "Das eingegebene Passwort ist leider falsch.");
+                btn.disabled = false;
+                btn.innerText = "Einloggen";
+            } else if (!data.session) {
+                // Sonderfall: Account existiert, E-Mail wurde aber in Supabase nie bestätigt
+                showModal("Fehler", "Der Account existiert, aber Supabase hat keine Login-Session erstellt. Ist die E-Mail 'scouts@luinet.de' bestätigt?");
+                btn.disabled = false;
+                btn.innerText = "Einloggen";
+            } else {
+                // ERFOLG! Wir geben dem Browser 500ms Zeit, den Token wirklich in den LocalStorage zu schreiben
+                setTimeout(() => {
+                    window.location.href = 'dashboard_intern.html';
+                }, 500);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workshop Buchungssystem</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --primary-hover: #004494;
+            --bg-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --slot-hover: #e9ecef;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #fff;
+            color: #333;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: #aaa;
+            }
+
+        .main-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .main-header h1 {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+            }
+
+        #user-info {
+            font-size: 14px;
+            display: none;
+        }
+
+        .logout-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid white;
+            padding: 4px 10px;
+            margin-left: 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s;
+        }
+
+            .logout-btn:hover {
+                background-color: rgba(255, 255, 255, 0.4);
+            }
+
+        #content-wrapper {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        #left-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            padding: 15px 20px;
+            min-height: 0;
+        }
+
+        #right-panel {
+            flex: 1;
+            background-color: var(--bg-color);
+            border-left: 1px solid var(--border-color);
+            padding: 25px;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+            .calendar-header button {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 8px 15px;
+                font-size: 15px;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+
+                .calendar-header button:hover {
+                    background-color: var(--primary-hover);
+                }
+
+            .calendar-header h2 {
+                margin: 0;
+                font-size: 22px;
+            }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-align: center;
+            color: #555;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .day-cell {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: #fff;
+            min-height: 0;
+        }
+
+        .empty-cell {
+            background-color: transparent;
+            border: none;
+        }
+
+        .day-header {
+            background-color: var(--bg-color);
+            padding: 4px;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .time-slot {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: 0;
+            text-align: center;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: #000;
+        }
+
+            .time-slot:last-child {
+                border-bottom: none;
+            }
+
+        #my-bookings-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+            #my-bookings-container h3 {
+                margin-top: 0;
+                color: var(--primary-color);
+                font-size: 20px;
+                border-bottom: 2px solid var(--border-color);
+                padding-bottom: 10px;
+                flex-shrink: 0;
+                margin-bottom: 15px;
+            }
+
+        .info-text {
+            background: #e2eef9;
+            color: #004085;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #b8daff;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .booking-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 5px;
+        }
+
+        .booking-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+        }
+
+            .booking-item:hover {
+                background-color: #f1f3f5;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+                transform: translateY(-2px);
+            }
+
+            .booking-item strong {
+                display: block;
+                color: var(--primary-color);
+                font-size: 16px;
+                margin-bottom: 4px;
+            }
+
+        .status-badge {
+            display: inline-block;
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 10px;
+            border: 1px solid #ffeeba;
+        }
+
+        #booking-form-container, #booking-details-container {
+            display: none;
+        }
+
+        .booking-header {
+            margin-top: 0;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .details-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+            .details-header-row h3 {
+                margin: 0;
+                font-size: 20px;
+            }
+
+        .collapse-btn {
+            background-color: transparent;
+            border: none;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            cursor: pointer;
+            padding: 0 10px;
+            transition: transform 0.2s, color 0.2s;
+        }
+
+            .collapse-btn:hover {
+                transform: translateX(4px);
+                color: var(--primary-hover);
+            }
+
+        .selection-info {
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+            .selection-info p {
+                margin: 5px 0;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            .form-group input[type="text"], .form-group input[type="email"], .form-group select, .form-group textarea {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                box-sizing: border-box;
+                font-family: var(--font-family);
+                transition: box-shadow 0.2s;
+            }
+
+            .form-group input[readonly] {
+                background-color: #f1f3f5;
+                color: #495057;
+                cursor: pointer;
+            }
+
+            .form-group textarea {
+                resize: vertical;
+                min-height: 80px;
+            }
+
+        .submit-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 5px;
+            transition: background-color 0.2s;
+        }
+
+            .submit-btn:hover {
+                background-color: #218838;
+            }
+
+            .submit-btn:disabled {
+                background-color: #6c757d;
+                cursor: not-allowed;
+            }
+
+        #custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .custom-modal-box {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+            .custom-modal-box h3 {
+                margin-top: 0;
+                color: var(--primary-color);
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+
+            .custom-modal-box button {
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                transition: background 0.2s;
+            }
+
+                .custom-modal-box button:hover {
+                    background: var(--primary-hover);
+                }
+    </style>
+</head>
+<body style="visibility: hidden;">
+
+    <header class="main-header">
+        <h1>Workshop Buchung</h1>
+        <div id="user-info">
+            Eingeloggt als: <strong id="logged-in-email">...</strong>
+            <button class="logout-btn" onclick="handleLogout()">Abmelden</button>
+        </div>
+    </header>
+
+    <div id="content-wrapper">
+        <div id="left-panel">
+            <div class="calendar-header">
+                <button onclick="changeMonth(-1)">&#9664; Voriger Monat</button>
+                <h2 id="month-year-display">Monat Jahr</h2>
+                <button onclick="changeMonth(1)">Nächster Monat &#9654;</button>
+            </div>
+            <div class="weekdays"><div>Montag</div><div>Dienstag</div><div>Mittwoch</div><div>Donnerstag</div><div>Freitag</div></div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <div id="right-panel">
+            <div id="my-bookings-container">
+                <h3>Meine bisherigen Anfragen</h3>
+                <div class="info-text">
+                    <strong>Neuen Workshop anfragen:</strong> Klicke im Kalender auf einen freien Termin. Du kannst (mit Strg + Klick) bis zu 3 Termine wählen.
+                </div>
+                <ul class="booking-list" id="my-bookings-list"><li>Wird geladen...</li></ul>
+            </div>
+
+            <div id="booking-form-container">
+                <div class="details-header-row">
+                    <h3 class="booking-header">Details eintragen</h3>
+                    <button class="collapse-btn" title="Schließen" type="button" onclick="closePanels()">&#10095;</button>
+                </div>
+
+                <form id="workshop-form" onsubmit="submitForm(event)">
+                    <div class="form-group">
+                        <label>1. Wunschtermin (Haupttermin)</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="alt-0" readonly placeholder="Bitte anklicken & Kalender wählen" style="flex:1;" onclick="setActiveSlot(0)">
+                            <button type="button" style="padding: 0 12px; border-radius:4px; border:1px solid var(--border-color); background: #fff; cursor:pointer; font-size:16px;" onclick="openNormalDatePicker(0)">📅</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>2. Wunschtermin (Pflicht)</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="alt-1" readonly placeholder="Bitte anklicken & Kalender wählen" style="flex:1;" onclick="setActiveSlot(1)">
+                            <button type="button" style="padding: 0 12px; border-radius:4px; border:1px solid var(--border-color); background: #fff; cursor:pointer; font-size:16px;" onclick="openNormalDatePicker(1)">📅</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>3. Wunschtermin (Pflicht)</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="alt-2" readonly placeholder="Bitte anklicken & Kalender wählen" style="flex:1;" onclick="setActiveSlot(2)">
+                            <button type="button" style="padding: 0 12px; border-radius:4px; border:1px solid var(--border-color); background: #fff; cursor:pointer; font-size:16px;" onclick="openNormalDatePicker(2)">📅</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 25px;">
+                        <label for="workshop-select">Gewünschter Workshop</label>
+                        <select id="workshop-select" required></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name">Kürzel (max. 2 Zeichen)</label>
+                        <input type="text" id="name" required maxlength="2" pattern="[A-Za-zÄÖÜäöüß]{1,2}" placeholder="z.B. AB">
+                    </div>
+
+                    <div class="form-group"><label for="email">E-Mail Adresse</label><input type="email" id="email" required readonly></div>
+                    <div class="form-group"><label for="class">Klasse / Lerngruppe</label><input type="text" id="class" required placeholder="z.B. 9b"></div>
+                    <div class="form-group"><label for="topic">Bemerkungen (Optional)</label><textarea id="topic" placeholder="Gibt es Besonderheiten?"></textarea></div>
+
+                    <button type="submit" id="submit-btn" class="submit-btn">Workshop jetzt anfragen</button>
+                </form>
+            </div>
+
+            <div id="booking-details-container">
+                <div class="details-header-row">
+                    <h3 class="booking-header">Details zur Anfrage</h3>
+                    <button class="collapse-btn" title="Schließen" type="button" onclick="closePanels()">&#10095;</button>
+                </div>
+                <div class="selection-info" id="details-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM MODAL POPUP -->
+    <div id="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <h3 id="modal-title">Hinweis</h3>
+            <div id="modal-msg" style="margin-bottom: 25px; font-size: 15px; color: #444; line-height: 1.5;">Nachricht hier</div>
+            <div id="modal-footer" style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" onclick="hideModal()">Verstanden</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userEmail = "";
+        let allBookingsData = [];
+        let myBookingsData = [];
+        let activeBookingId = null;
+
+        function showModal(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerHTML = message;
+            document.getElementById('modal-footer').innerHTML = `<button type="button" onclick="hideModal()" style="background:var(--primary-color); padding: 10px 30px; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Verstanden</button>`;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('custom-modal-overlay').style.display = 'none'; }
+
+        function hexToRgba(hex, alpha) {
+            if (!hex || !/^#([0-9A-Fa-f]{3}){1,2}$/.test(hex)) hex = '#0056b3';
+            let c = hex.substring(1).split('');
+            if (c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            let num = parseInt(c.join(''), 16);
+            return `rgba(${num >> 16}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+        }
+
+        function setPanelLayout(mode) {
+            document.getElementById('my-bookings-container').style.display = mode === 'idle' ? 'flex' : 'none';
+            document.getElementById('booking-form-container').style.display = mode === 'form' ? 'block' : 'none';
+            document.getElementById('booking-details-container').style.display = mode === 'details' ? 'block' : 'none';
+        }
+
+        function closePanels() {
+            selectedSlots = [];
+            activeBookingId = null;
+            clearActiveSlot();
+            setPanelLayout('idle');
+            renderCalendar();
+        }
+
+        async function initDashboard() {
+            const user = await verifyAuth();
+            if (!user) return;
+
+            userEmail = user.email;
+            document.getElementById('logged-in-email').innerText = userEmail;
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('email').value = userEmail;
+
+            setPanelLayout('idle');
+            loadWorkshops();
+            await loadBookings();
+        }
+
+        async function loadWorkshops() {
+            const selectElement = document.getElementById('workshop-select');
+            const { data, error } = await supabaseClient.from('workshops').select('id, name');
+            if (error) { selectElement.innerHTML = '<option value="">Fehler beim Laden</option>'; return; }
+
+            selectElement.innerHTML = '<option value="" disabled selected>Bitte einen Workshop wählen...</option>';
+            data.forEach(workshop => {
+                const option = document.createElement('option');
+                option.value = workshop.id;
+                option.innerText = workshop.name;
+                selectElement.appendChild(option);
+            });
+        }
+
+        async function loadBookings() {
+            const listElement = document.getElementById('my-bookings-list');
+            const { data, error } = await supabaseClient.from('workshop_bookings')
+                .select('*, workshops(name, color)')
+                .order('created_at', { ascending: false });
+
+            if (error || !data) { listElement.innerHTML = '<li>Fehler beim Laden der Buchungen.</li>'; renderCalendar(); return; }
+
+            allBookingsData = data.map((b) => {
+                const wsName = b.workshops?.name || "Unbekannter Workshop";
+                const hex = b.workshops?.color || '#0056b3';
+                return { ...b, workshop_name: wsName, theme: { bg: hexToRgba(hex, 0.15), border: hex, text: hex } };
+            });
+
+            myBookingsData = allBookingsData.filter(b => b.email === userEmail);
+
+            if (myBookingsData.length === 0) {
+                listElement.innerHTML = '<li style="padding: 15px; color:#555; text-align:center;">Du hast noch keine alten Anfragen.</li>';
+                renderCalendar(); return;
+            }
+
+            listElement.innerHTML = '';
+            myBookingsData.forEach(booking => {
+                const germanDate = formatDateToGerman(booking.main_date);
+                const currentStatus = booking.status || "Angefragt";
+
+                const li = document.createElement('li');
+                li.className = 'booking-item';
+                li.style.borderLeft = `6px solid ${booking.theme.border}`;
+                li.onclick = () => showBookingDetails(booking.id);
+                li.innerHTML = `
+                                <strong>${booking.workshop_name}</strong>
+                                Klasse ${booking.class_name} | Haupttermin: ${germanDate} (${booking.main_slot})
+                                <div><span class="status-badge">Status: ${currentStatus}</span></div>
+                            `;
+                listElement.appendChild(li);
+            });
+            renderCalendar();
+        }
+
+        function formatDateToGerman(isoString) {
+            if (!isoString) return "-";
+            const dateParts = isoString.split('-'); return `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+        }
+
+        let currentDate = new Date();
+        let selectedSlots = [];
+        let activeSlotIndex = null;
+        const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+        const timeSlots = ['1./2. Stunde', '3./4. Stunde', '5./6. Stunde'];
+
+        function setActiveSlot(index) {
+            activeSlotIndex = index;
+            for (let i = 0; i < 3; i++) {
+                const el = document.getElementById('alt-' + i);
+                if (el) {
+                    if (i === index) {
+                        el.style.boxShadow = "0 0 0 2px var(--primary-color)";
+                        el.style.borderColor = "var(--primary-color)";
+                    } else {
+                        el.style.boxShadow = "none";
+                        el.style.borderColor = "var(--border-color)";
+                    }
+                }
+            }
+        }
+
+        function clearActiveSlot() {
+            activeSlotIndex = null;
+            for (let i = 0; i < 3; i++) {
+                const el = document.getElementById('alt-' + i);
+                if (el) {
+                    el.style.boxShadow = "none";
+                    el.style.borderColor = "var(--border-color)";
+                }
+            }
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear(); const month = currentDate.getMonth();
+            document.getElementById('month-year-display').innerText = `${monthNames[month]} ${year}`;
+            const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
+
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
+
+            let startDayOfWeek = firstDayOfMonth.getDay();
+            let emptyCellsCount = (startDayOfWeek >= 1 && startDayOfWeek <= 5) ? startDayOfWeek - 1 : 0;
+            let totalCells = emptyCellsCount + lastDayOfMonth.getDate();
+
+            for (let i = 0; i < emptyCellsCount; i++) {
+                const emptyCell = document.createElement('div'); emptyCell.className = 'day-cell empty-cell'; grid.appendChild(emptyCell);
+            }
+
+            for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
+                const currentDayObj = new Date(year, month, d);
+                if (currentDayObj.getDay() >= 1 && currentDayObj.getDay() <= 5) {
+                    grid.appendChild(createDayCell(currentDayObj));
+                }
+            }
+
+            const numRows = Math.ceil((totalCells > 0 ? document.querySelectorAll('.day-cell:not(.empty-cell)').length + emptyCellsCount : 0) / 5);
+            grid.style.gridTemplateRows = `repeat(${numRows}, minmax(0, 1fr))`;
+        }
+
+        function createDayCell(dateObj) {
+            const cell = document.createElement('div'); cell.className = 'day-cell';
+            cell.innerHTML = `<div class="day-header">${dateObj.getDate()}.</div>`;
+            const iso = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+            const isDetailsMode = document.getElementById('booking-details-container').style.display === 'block';
+
+            timeSlots.forEach(slot => {
+                const div = document.createElement('div');
+                div.className = 'time-slot';
+
+                const matches = allBookingsData.filter(b => {
+                    if (b.status === 'Angenommen') return b.final_date === iso && b.final_slot === slot;
+                    if (b.status === 'Abgelehnt') return false;
+                    return (b.main_date === iso && b.main_slot === slot) || (b.alt_date_1 === iso && b.alt_slot_1 === slot) || (b.alt_date_2 === iso && b.alt_slot_2 === slot);
+                });
+
+                const editingSlotIdx = selectedSlots.findIndex(s => s && s.isoDate === iso && s.slotName === slot);
+
+                // Geteilte Ansicht für alle vorhandenen Buchungen (Maximal 2)
+                matches.forEach((match, index) => {
+                    const subDiv = document.createElement('div');
+                    subDiv.style.flex = "1";
+                    subDiv.style.display = "flex";
+                    subDiv.style.alignItems = "center";
+                    subDiv.style.justifyContent = "center";
+                    subDiv.style.fontSize = "11px";
+                    subDiv.style.overflow = "hidden";
+                    subDiv.style.cursor = "pointer";
+                    if (index === 0 && matches.length > 1) subDiv.style.borderBottom = "1px solid var(--border-color)";
+
+                    subDiv.innerHTML = `<b>${match.class_name} | ${match.name}</b>`;
+                    subDiv.style.backgroundColor = match.theme.bg;
+                    subDiv.style.color = '#000';
+
+                    if (isDetailsMode && activeBookingId === match.id) {
+                        subDiv.style.backgroundColor = match.theme.border;
+                        subDiv.style.border = `2px solid ${match.theme.border}`;
+                    } else {
+                        subDiv.style.borderLeft = `4px ${match.status === 'Angenommen' ? 'solid' : 'dashed'} ${match.theme.border}`;
+                    }
+
+                    subDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        if (match.email === userEmail) showBookingDetails(match.id);
+                        else showModal("Fremde Buchung", "Dieser Termin wurde bereits von einer anderen Person gebucht.");
+                    };
+                    div.appendChild(subDiv);
+                });
+
+                // Wenn weniger als 2 Buchungen da sind -> Restplatz ist verfügbar
+                if (matches.length < 2) {
+                    const freeDiv = document.createElement('div');
+                    freeDiv.style.flex = "1";
+                    freeDiv.style.display = "flex";
+                    freeDiv.style.alignItems = "center";
+                    freeDiv.style.justifyContent = "center";
+                    freeDiv.style.fontSize = "12px";
+                    freeDiv.style.cursor = "pointer";
+
+                    if (matches.length === 1) {
+                        freeDiv.style.borderTop = "1px dashed var(--border-color)";
+                        freeDiv.style.backgroundColor = "#fafafa";
+                    }
+
+                    if (editingSlotIdx > -1) {
+                        freeDiv.style.backgroundColor = 'var(--primary-color)';
+                        freeDiv.style.color = '#fff';
+                        freeDiv.style.fontWeight = 'bold';
+                        freeDiv.innerHTML = matches.length === 0 ? slot : 'Markiert';
+                    } else {
+                        freeDiv.innerHTML = matches.length === 0 ? slot : '<span style="font-size:10px; opacity:0.7;">+ Frei</span>';
+                    }
+
+                    freeDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        selectSlot(e, dateObj, slot);
+                    };
+                    div.appendChild(freeDiv);
+                }
+
+                cell.appendChild(div);
+            });
+            return cell;
+        }
+
+        function showBookingDetails(bookingId) {
+            const booking = myBookingsData.find(b => b.id === bookingId);
+            if (!booking) return;
+
+            activeBookingId = bookingId;
+            selectedSlots = [];
+            clearActiveSlot();
+            setPanelLayout('details');
+
+            const currentStatus = booking.status || "Angefragt";
+            document.getElementById('details-content').innerHTML = `
+                            <div style="border-left: 6px solid ${booking.theme.border}; padding-left: 15px;">
+                                <p style="font-size: 16px; margin-bottom: 15px; color: #000;"><strong>Workshop:</strong> ${booking.workshop_name}</p>
+                                <p><strong>Klasse:</strong> ${booking.class_name}</p>
+                                ${booking.topic ? `<p><strong>Bemerkung:</strong> ${booking.topic}</p>` : ''}
+                                <hr style="border:0; border-top: 1px solid #dee2e6; margin: 15px 0;">
+                                <p><strong>1. Wunschtermin:</strong> <br>${formatDateToGerman(booking.main_date)} (${booking.main_slot})</p>
+                                <p><strong>Alternativ 1:</strong> <br>${formatDateToGerman(booking.alt_date_1)} (${booking.alt_slot_1})</p>
+                                <p><strong>Alternativ 2:</strong> <br>${formatDateToGerman(booking.alt_date_2)} (${booking.alt_slot_2})</p>
+                            </div>
+                            <div style="margin-top: 25px; background: #fff3cd; color: #856404; padding: 15px; border-radius: 6px; border: 1px solid #ffeeba; text-align: center; font-size: 18px;">
+                                <strong>Status:</strong> ${currentStatus}
+                            </div>
+                        `;
+        }
+
+        function selectSlot(event, dateObj, slotName) {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = dateObj.toLocaleDateString('de-DE', options);
+            const combinedString = `${formattedDate} (${slotName})`;
+            const isoDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+            const newSlot = { formattedDate, slotName, combinedString, isoDate };
+
+            if (activeSlotIndex !== null) {
+                // Nur den fokussierten Slot ersetzen
+                selectedSlots[activeSlotIndex] = newSlot;
+            } else {
+                // Alte Logik mit Strg-Taste
+                const isMultiSelect = event.ctrlKey || event.metaKey;
+                const existingIndex = selectedSlots.findIndex(s => s && s.isoDate === isoDate && s.slotName === slotName);
+
+                if (isMultiSelect) {
+                    if (existingIndex > -1) {
+                        selectedSlots[existingIndex] = null; // Entfernen
+                    } else {
+                        let inserted = false;
+                        for (let i = 0; i < 3; i++) {
+                            if (!selectedSlots[i]) {
+                                selectedSlots[i] = newSlot;
+                                inserted = true;
+                                break;
+                            }
+                        }
+                        if (!inserted) showModal("Achtung", "Du kannst maximal einen Haupttermin und zwei Alternativtermine auswählen.");
+                    }
+                } else {
+                    selectedSlots = [newSlot, null, null];
+                }
+            }
+            updateUI();
+            renderCalendar();
+        }
+
+        function updateUI() {
+            const validSlots = selectedSlots.filter(s => s !== null);
+            if (validSlots.length === 0) {
+                setPanelLayout('idle');
+                return;
+            }
+            setPanelLayout('form');
+
+            document.getElementById('alt-0').value = (selectedSlots[0]) ? selectedSlots[0].combinedString : "";
+            document.getElementById('alt-1').value = (selectedSlots[1]) ? selectedSlots[1].combinedString : "";
+            document.getElementById('alt-2').value = (selectedSlots[2]) ? selectedSlots[2].combinedString : "";
+        }
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            renderCalendar();
+        }
+
+        function openNormalDatePicker(index) {
+            let currentIso = "";
+            let currentSlot = "1./2. Stunde";
+            if (selectedSlots[index]) {
+                currentIso = selectedSlots[index].isoDate;
+                currentSlot = selectedSlots[index].slotName;
+            }
+
+            const html = `
+                    <div style="text-align: left;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Datum:</label>
+                        <input type="date" id="manual-date" value="${currentIso}" style="width:100%; padding:8px; margin-bottom:15px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Zeitfenster:</label>
+                        <select id="manual-slot" style="width:100%; padding:8px; margin-bottom:15px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
+                            <option value="1./2. Stunde" ${currentSlot === '1./2. Stunde' ? 'selected' : ''}>1./2. Stunde</option>
+                            <option value="3./4. Stunde" ${currentSlot === '3./4. Stunde' ? 'selected' : ''}>3./4. Stunde</option>
+                            <option value="5./6. Stunde" ${currentSlot === '5./6. Stunde' ? 'selected' : ''}>5./6. Stunde</option>
+                        </select>
+                    </div>
+                `;
+            document.getElementById('modal-title').innerText = `Termin ${index + 1} wählen`;
+            document.getElementById('modal-msg').innerHTML = html;
+            document.getElementById('modal-footer').innerHTML = `
+                    <button type="button" onclick="hideModal()" style="background:#6c757d; padding: 10px 20px; color:white; border:none; border-radius:5px; cursor:pointer;">Abbrechen</button>
+                    <button type="button" onclick="saveNormalManualDate(${index})" style="background:var(--primary-color); padding: 10px 20px; color:white; border:none; border-radius:5px; cursor:pointer;">Übernehmen</button>
+                `;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+
+        function saveNormalManualDate(index) {
+            const dateVal = document.getElementById('manual-date').value;
+            const slotVal = document.getElementById('manual-slot').value;
+            if (!dateVal) { alert("Bitte Datum wählen"); return; }
+
+            const dateObj = new Date(dateVal);
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = dateObj.toLocaleDateString('de-DE', options);
+            const combinedString = `${formattedDate} (${slotVal})`;
+
+            while (selectedSlots.length <= index) { selectedSlots.push(null); }
+            selectedSlots[index] = { formattedDate, slotName: slotVal, combinedString, isoDate: dateVal };
+
+            updateUI();
+            renderCalendar();
+            hideModal();
+        }
+
+        async function submitForm(event) {
+            event.preventDefault();
+            if (selectedSlots.length < 3 || !selectedSlots[0] || !selectedSlots[1] || !selectedSlots[2]) {
+                showModal("Hinweis", "Bitte wähle im Kalender oder über den Button 📅 alle 3 Termine aus!"); return;
+            }
+
+            const btn = document.getElementById('submit-btn');
+            const originalBtnText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "Speichere...";
+
+            const bookingData = {
+                name: document.getElementById('name').value.toUpperCase(),
+                email: document.getElementById('email').value,
+                class_name: document.getElementById('class').value,
+                workshop_id: document.getElementById('workshop-select').value,
+                topic: document.getElementById('topic').value,
+                main_date: selectedSlots[0].isoDate, main_slot: selectedSlots[0].slotName,
+                alt_date_1: selectedSlots[1].isoDate, alt_slot_1: selectedSlots[1].slotName,
+                alt_date_2: selectedSlots[2].isoDate, alt_slot_2: selectedSlots[2].slotName
+            };
+
+            try {
+                const { error } = await supabaseClient.from('workshop_bookings').insert([bookingData]);
+                if (error) throw error;
+                showModal("Erfolg", "Vielen Dank!\nDie Buchung wurde erfolgreich für dich angefragt.");
+                document.getElementById('workshop-form').reset();
+                document.getElementById('email').value = userEmail;
+                closePanels();
+                loadBookings();
+            } catch (err) {
+                showModal("Fehler", "Fehler beim Speichern: " + err.message);
+                console.error("Fehler:", err);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalBtnText;
+            }
+        }
+        initDashboard();
+    </script>
+</body>
+</html>

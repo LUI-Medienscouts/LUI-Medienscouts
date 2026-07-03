@@ -1,0 +1,1372 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internes Dashboard - Medienscouts</title>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #681da8;
+            --primary-hover: #4a148c;
+            --bg-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --slot-hover: #e9ecef;
+            --font-family: 'Segoe UI', Tahoma, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #fff;
+            color: #333;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .main-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .main-header h1 {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+            }
+
+        .logout-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #content-wrapper {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        #left-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            padding: 15px 20px;
+            min-height: 0;
+        }
+
+        #right-panel {
+            flex: 1;
+            background-color: var(--bg-color);
+            border-left: 1px solid var(--border-color);
+            padding: 25px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+            .calendar-header button {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 8px 15px;
+                font-size: 15px;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-align: center;
+            color: #555;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+            margin-bottom: 10px;
+        }
+
+        .day-cell {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        .empty-cell {
+            background-color: transparent;
+            border: none;
+        }
+
+        .day-header {
+            background-color: var(--bg-color);
+            padding: 4px;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+
+        .time-slot {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: 0;
+            text-align: center;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: #000;
+        }
+
+            .time-slot:last-child {
+                border-bottom: none;
+            }
+
+        #my-bookings-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+            #my-bookings-container .header-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid var(--border-color);
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+                flex-shrink: 0;
+            }
+
+                #my-bookings-container .header-row h3 {
+                    margin: 0;
+                    color: var(--primary-color);
+                    font-size: 20px;
+                }
+
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .filter-btn {
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #495057;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+            .filter-btn:hover {
+                background: #dee2e6;
+            }
+
+            .filter-btn.active {
+                background: var(--primary-color);
+                color: white;
+                border-color: var(--primary-color);
+            }
+
+        .workshop-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #444;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+            .legend-item:hover {
+                background-color: #e2e6ea;
+            }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            margin-right: 6px;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        .add-workshop-btn {
+            cursor: pointer;
+            background: #eee;
+            border: 1px dashed #ccc;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #555;
+            transition: background 0.2s;
+        }
+
+            .add-workshop-btn:hover {
+                background: #e0e0e0;
+                color: #000;
+            }
+
+        .booking-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .booking-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+            .booking-item:hover {
+                background-color: #f1f3f5;
+            }
+
+            .booking-item strong {
+                display: block;
+                color: var(--primary-color);
+                font-size: 16px;
+                margin-bottom: 4px;
+            }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        #booking-form-container, #booking-details-container {
+            display: none;
+        }
+
+        .details-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+            .details-header-row h3 {
+                margin: 0;
+                color: var(--primary-color);
+                font-size: 20px;
+            }
+
+        .collapse-btn {
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .selection-info {
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            .form-group input, .form-group select, .form-group textarea {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                box-sizing: border-box;
+                font-family: inherit;
+                transition: box-shadow 0.2s;
+            }
+
+                .form-group input[readonly] {
+                    background-color: #f1f3f5;
+                    color: #495057;
+                    cursor: pointer;
+                }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            color: white;
+            width: 100%;
+            margin-bottom: 8px;
+            transition: opacity 0.2s;
+        }
+
+            .btn:hover {
+                opacity: 0.9;
+            }
+
+        .btn-success {
+            background-color: #28a745;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+
+        .slot-radio-group {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+            .slot-radio-group label {
+                display: block;
+                margin-bottom: 10px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+
+        #custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .custom-modal-box {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 8px;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+            .custom-modal-box h3 {
+                margin-top: 0;
+                color: var(--primary-color);
+            }
+
+            .custom-modal-box p, .custom-modal-box div#modal-msg {
+                white-space: pre-wrap;
+                margin-bottom: 20px;
+                line-height: 1.5;
+                color: #444;
+            }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+            .modal-buttons button {
+                margin: 0;
+                width: auto;
+            }
+    </style>
+</head>
+<body style="visibility: hidden;">
+
+    <header class="main-header">
+        <h1>Internes Scout-Dashboard</h1>
+        <button class="logout-btn" onclick="handleLogout()">Abmelden</button>
+    </header>
+
+    <div id="content-wrapper">
+        <div id="left-panel">
+            <div class="calendar-header">
+                <button onclick="changeMonth(-1)">&#9664; Voriger Monat</button>
+                <h2 id="month-year-display">Monat Jahr</h2>
+                <button onclick="changeMonth(1)">Nächster Monat &#9654;</button>
+            </div>
+            <div class="weekdays"><div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div></div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <div id="right-panel">
+            <div id="my-bookings-container">
+                <div class="header-row">
+                    <h3>Alle Anfragen</h3>
+                    <button class="add-workshop-btn" style="background-color: var(--primary-color); color: white; border: none; padding: 6px 12px; font-weight: bold;" onclick="startNewBooking()">+ Neue Buchung</button>
+                </div>
+
+                <!-- Filter Buttons -->
+                <div class="filter-group">
+                    <button class="filter-btn active" onclick="setFilter('Alle', this)">Alle</button>
+                    <button class="filter-btn" onclick="setFilter('Angefragt', this)">Angefragt</button>
+                    <button class="filter-btn" onclick="setFilter('Angenommen', this)">Angenommen</button>
+                    <button class="filter-btn" onclick="setFilter('Abgelehnt', this)">Abgelehnt</button>
+                </div>
+
+                <!-- Legende wird per JS gefüllt -->
+                <div class="workshop-legend" id="workshop-legend"></div>
+                <ul class="booking-list" id="my-bookings-list"><li>Lade...</li></ul>
+            </div>
+
+            <div id="booking-form-container">
+                <div class="details-header-row">
+                    <h3 class="booking-header" id="form-header-title">Buchung bearbeiten</h3>
+                    <button class="collapse-btn" onclick="handleFormClose()">&#10095;</button>
+                </div>
+                <form id="workshop-form" onsubmit="submitForm(event)">
+                    <div class="form-group">
+                        <label>1. Wunschtermin</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="alt-0" readonly style="flex:1;" onclick="setActiveSlot(0)">
+                            <button type="button" class="btn btn-secondary" style="width:auto; margin:0;" onclick="openInternalDatePicker(0)">📅</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>2. Wunschtermin</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="alt-1" readonly style="flex:1;" onclick="setActiveSlot(1)">
+                            <button type="button" class="btn btn-secondary" style="width:auto; margin:0;" onclick="openInternalDatePicker(1)">📅</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>3. Wunschtermin</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="alt-2" readonly style="flex:1;" onclick="setActiveSlot(2)">
+                            <button type="button" class="btn btn-secondary" style="width:auto; margin:0;" onclick="openInternalDatePicker(2)">📅</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group"><label>Workshop</label><select id="workshop-select" required></select></div>
+                    <div class="form-group"><label>Kürzel (max. 2 Zeichen)</label><input type="text" id="name" required maxlength="2" pattern="[A-Za-zÄÖÜäöüß]{1,2}"></div>
+                    <!-- E-Mail Adresse ist hier komplett frei editierbar! -->
+                    <div class="form-group"><label>E-Mail Adresse der Lehrkraft</label><input type="email" id="email" required></div>
+                    <div class="form-group"><label>Klasse</label><input type="text" id="class" required></div>
+                    <div class="form-group"><label>Bemerkung (Lehrkraft)</label><textarea id="topic"></textarea></div>
+                    <div class="form-group">
+                        <label style="color: var(--primary-color);">Interner Kommentar (Nur für Scouts sichtbar)</label>
+                        <textarea id="internal-comment" style="border-color: var(--primary-color); background: #f3e8fd; resize: vertical;"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submit-btn">Änderungen bestätigen</button>
+                </form>
+            </div>
+
+            <div id="booking-details-container">
+                <div class="details-header-row">
+                    <h3 class="booking-header">Details zur Anfrage</h3>
+                    <button class="collapse-btn" onclick="closePanels()">&#10095;</button>
+                </div>
+                <div class="selection-info" id="details-content"></div>
+
+                <!-- DIALOG: ANNEHMEN -->
+                <div class="slot-radio-group" id="accept-dialog">
+                    <strong style="color:var(--primary-color); display:block; margin-bottom: 10px;">Welcher Termin soll zugesagt werden?</strong>
+                    <label><input type="radio" name="finalSlot" id="radio-0"> <span id="label-0"></span></label>
+                    <label><input type="radio" name="finalSlot" id="radio-1"> <span id="label-1"></span></label>
+                    <label><input type="radio" name="finalSlot" id="radio-2"> <span id="label-2"></span></label>
+
+                    <button class="btn btn-success" onclick="confirmAccept()">✅ Status auf "Angenommen" setzen</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('accept-dialog').style.display='none'; document.getElementById('action-buttons').style.display='block';">Abbrechen</button>
+                </div>
+
+                <!-- DIALOG: ABLEHNEN -->
+                <div class="slot-radio-group" id="reject-dialog" style="background: #f8d7da; border: 1px solid #f5c6cb;">
+                    <strong style="color:#721c24; display:block; margin-bottom: 10px;">Anfrage sicher ablehnen?</strong>
+                    <p style="font-size: 13px; color: #555; margin-top:0;">Die Nachricht an die Lehrkraft hast du idealerweise schon oben im Feld hinterlegt.</p>
+                    <button class="btn btn-danger" onclick="confirmReject()">Status auf "Abgelehnt" setzen</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('reject-dialog').style.display='none'; document.getElementById('action-buttons').style.display='block';">Abbrechen</button>
+                </div>
+
+                <div id="action-buttons">
+                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+                        <button class="btn btn-success" style="margin-bottom: 0;" onclick="showAcceptDialog()">👍 Annehmen (Status)</button>
+                        <button class="btn btn-danger" style="margin-bottom: 0;" onclick="showRejectDialog()">👎 Ablehnen (Status)</button>
+                    </div>
+                    <button class="btn btn-primary" onclick="startEdit()">✏️ Bearbeiten</button>
+                    <button class="btn btn-secondary" style="background-color: #17a2b8;" onclick="informTeacher()">✉️ Lehrkraft informieren</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ZENTRALES MODAL -->
+    <div id="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <h3 id="modal-title"></h3>
+            <div id="modal-msg"></div>
+            <div class="modal-buttons" id="modal-footer"></div>
+        </div>
+    </div>
+
+    <script>
+        let allBookings = [];
+        let activeBooking = null;
+        let currentFilter = 'Alle';
+
+        function showModal(title, msg) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerHTML = msg;
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = `<button class="btn btn-primary" onclick="document.getElementById('custom-modal-overlay').style.display='none'">OK</button>`;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+
+        function showConfirmModal(title, msg, confirmText, cancelText, onConfirm, onCancel) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerHTML = msg;
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = `
+                        <button class="btn btn-secondary" onclick="closeConfirmModal(false)">${cancelText}</button>
+                        <button class="btn btn-primary" onclick="closeConfirmModal(true)">${confirmText}</button>
+                    `;
+
+            window.modalCallback = function (result) {
+                document.getElementById('custom-modal-overlay').style.display = 'none';
+                if (result && onConfirm) onConfirm();
+                if (!result && onCancel) onCancel();
+            };
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+
+        function closeConfirmModal(result) { if (window.modalCallback) window.modalCallback(result); }
+
+        function hexToRgba(hex, alpha) {
+            if (!hex || !/^#([0-9A-Fa-f]{3}){1,2}$/.test(hex)) hex = '#681da8';
+            let c = hex.substring(1).split('');
+            if (c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            let num = parseInt(c.join(''), 16);
+            return `rgba(${num >> 16}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+        }
+
+        function setPanelLayout(mode) {
+            document.getElementById('my-bookings-container').style.display = mode === 'idle' ? 'flex' : 'none';
+            document.getElementById('booking-form-container').style.display = mode === 'form' ? 'block' : 'none';
+            document.getElementById('booking-details-container').style.display = mode === 'details' ? 'block' : 'none';
+        }
+
+        function closePanels() {
+            activeBooking = null;
+            selectedSlots = [];
+            clearActiveSlot();
+            setPanelLayout('idle');
+            renderCalendar();
+        }
+
+        function handleFormClose() {
+            if (activeBooking) {
+                cancelEdit();
+            } else {
+                closePanels();
+            }
+        }
+
+        function cancelEdit() {
+            showConfirmModal(
+                "Änderungen speichern?",
+                "Möchtest du deine Änderungen am Termin oder Kommentar speichern?\n\n[Speichern] = Bestätigen\n[Verwerfen] = Zurück zur Detailansicht",
+                "Speichern", "Verwerfen",
+                () => { submitForm(); },
+                () => { showDetails(activeBooking.id); renderCalendar(); }
+            );
+        }
+
+        async function initDashboard() {
+            const user = await verifyAuth('medienscouts@luinet.de');
+            if (!user) return;
+            await loadWorkshops();
+            await loadBookings();
+        }
+
+        async function loadWorkshops() {
+            const select = document.getElementById('workshop-select');
+            const legend = document.getElementById('workshop-legend');
+            const { data } = await supabaseClient.from('workshops').select('id, name, color').order('name');
+            select.innerHTML = '<option value="" disabled selected>Workshop wählen...</option>';
+            legend.innerHTML = '';
+
+            if (data) {
+                data.forEach(w => {
+                    select.innerHTML += `<option value="${w.id}">${w.name}</option>`;
+                    const hex = w.color || '#681da8';
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'legend-item';
+                    itemDiv.title = 'Workshop bearbeiten (Klick)';
+                    itemDiv.onclick = () => openEditWorkshopDialog(w.id, w.name, hex);
+                    itemDiv.innerHTML = `<span class="legend-color" style="background-color:${hex};"></span> ${w.name}`;
+
+                    legend.appendChild(itemDiv);
+                });
+
+                const addBtnDiv = document.createElement('div');
+                addBtnDiv.innerHTML = `<button class="add-workshop-btn" onclick="openAddWorkshopDialog()">+ Workshop hinzufügen</button>`;
+                legend.appendChild(addBtnDiv);
+            }
+        }
+
+        function openAddWorkshopDialog() {
+            const formHtml = `
+                        <div style="text-align: left; margin-top: 10px;">
+                            <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:bold;">Name des Workshops:</label>
+                            <input type="text" id="new-ws-name" style="width: 100%; padding: 8px; margin-bottom: 15px; box-sizing: border-box;">
+                            <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:bold;">Farbe:</label>
+                            <input type="color" id="new-ws-color" value="#681da8" style="width: 100%; height: 40px; padding: 0; cursor: pointer; border: none;">
+                        </div>
+                    `;
+            document.getElementById('modal-title').innerText = "Neuen Workshop hinzufügen";
+            document.getElementById('modal-msg').innerHTML = formHtml;
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = `
+                        <button class="btn btn-secondary" onclick="document.getElementById('custom-modal-overlay').style.display='none'">Abbrechen</button>
+                        <button class="btn btn-primary" onclick="saveNewWorkshop()">Speichern</button>
+                    `;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+
+        async function saveNewWorkshop() {
+            const name = document.getElementById('new-ws-name').value.trim();
+            const color = document.getElementById('new-ws-color').value;
+            if (!name) { alert("Bitte einen Namen eingeben"); return; }
+            const { error } = await supabaseClient.from('workshops').insert([{ name, color }]);
+            if (error) { showModal("Fehler", error.message); return; }
+            document.getElementById('custom-modal-overlay').style.display = 'none';
+            await loadWorkshops();
+            await loadBookings();
+        }
+
+        function openEditWorkshopDialog(id, currentName, currentColor) {
+            const formHtml = `
+                        <div style="text-align: left; margin-top: 10px;">
+                            <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:bold;">Name des Workshops:</label>
+                            <input type="text" id="edit-ws-name" value="${currentName}" style="width: 100%; padding: 8px; margin-bottom: 15px; box-sizing: border-box;">
+                            <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:bold;">Farbe:</label>
+                            <input type="color" id="edit-ws-color" value="${currentColor}" style="width: 100%; height: 40px; padding: 0; cursor: pointer; border: none;">
+                        </div>
+                    `;
+            document.getElementById('modal-title').innerText = "Workshop bearbeiten";
+            document.getElementById('modal-msg').innerHTML = formHtml;
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = `
+                        <button class="btn btn-secondary" onclick="document.getElementById('custom-modal-overlay').style.display='none'">Abbrechen</button>
+                        <button class="btn btn-primary" onclick="updateWorkshop('${id}')">Speichern</button>
+                    `;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+
+        async function updateWorkshop(id) {
+            const name = document.getElementById('edit-ws-name').value.trim();
+            const color = document.getElementById('edit-ws-color').value;
+            if (!name) { alert("Bitte einen Namen eingeben"); return; }
+
+            const { error } = await supabaseClient.from('workshops').update({ name, color }).eq('id', id);
+            if (error) { showModal("Fehler", error.message); return; }
+
+            document.getElementById('custom-modal-overlay').style.display = 'none';
+            await loadWorkshops();
+            await loadBookings();
+            if (activeBooking) showDetails(activeBooking.id);
+        }
+
+        function getStatusColor(status) {
+            if (status === 'Angenommen') return 'background: #d4edda; color: #155724; border: 1px solid #c3e6cb;';
+            if (status === 'Abgelehnt') return 'background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;';
+            return 'background: #fff3cd; color: #856404; border: 1px solid #ffeeba;';
+        }
+
+        async function loadBookings() {
+            const { data, error } = await supabaseClient
+                .from('workshop_bookings')
+                .select('*, workshops(name, color)')
+                .order('created_at', { ascending: false });
+
+            if (error || !data) {
+                document.getElementById('my-bookings-list').innerHTML = '<li>Fehler beim Laden</li>';
+                return;
+            }
+
+            allBookings = data.map(b => {
+                const wsName = b.workshops?.name || "Unbekannter Workshop";
+                const hex = b.workshops?.color || '#681da8';
+                return {
+                    ...b,
+                    workshop_name: wsName,
+                    theme: { bg: hexToRgba(hex, 0.15), border: hex, text: hex }
+                };
+            });
+
+            renderBookingList();
+            renderCalendar();
+        }
+
+        function setFilter(filterVal, btnElement) {
+            currentFilter = filterVal;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
+
+            renderBookingList();
+            renderCalendar();
+        }
+
+        function renderBookingList() {
+            const list = document.getElementById('my-bookings-list');
+            list.innerHTML = '';
+
+            let filtered = allBookings;
+            if (currentFilter !== 'Alle') {
+                filtered = allBookings.filter(b => (b.status || 'Angefragt') === currentFilter);
+            }
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<li style="padding: 15px; color:#555; text-align:center;">Keine Buchungen gefunden.</li>';
+                return;
+            }
+
+            filtered.forEach(b => {
+                const li = document.createElement('li');
+                li.className = 'booking-item';
+                li.style.borderLeft = `6px solid ${b.theme.border}`;
+                li.onclick = () => showDetails(b.id);
+                li.innerHTML = `
+                            <strong>${b.workshop_name}</strong>
+                            ${b.name} (${b.class_name}) | ${formatDate(b.main_date)}
+                            <div><span class="status-badge" style="${getStatusColor(b.status)}">${b.status || 'Angefragt'}</span></div>
+                        `;
+                list.appendChild(li);
+            });
+        }
+
+        function formatDate(iso) {
+            if (!iso) return "-";
+            const parts = iso.split('-'); return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        }
+
+        let currentDate = new Date();
+        let selectedSlots = [];
+        let activeSlotIndex = null;
+        const timeSlots = ['1./2. Stunde', '3./4. Stunde', '5./6. Stunde'];
+
+        function setActiveSlot(index) {
+            activeSlotIndex = index;
+            for (let i = 0; i < 3; i++) {
+                const el = document.getElementById('alt-' + i);
+                if (el) {
+                    if (i === index) {
+                        el.style.boxShadow = "0 0 0 2px var(--primary-color)";
+                        el.style.borderColor = "var(--primary-color)";
+                    } else {
+                        el.style.boxShadow = "none";
+                        el.style.borderColor = "var(--border-color)";
+                    }
+                }
+            }
+        }
+
+        function clearActiveSlot() {
+            activeSlotIndex = null;
+            for (let i = 0; i < 3; i++) {
+                const el = document.getElementById('alt-' + i);
+                if (el) {
+                    el.style.boxShadow = "none";
+                    el.style.borderColor = "var(--border-color)";
+                }
+            }
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear(); const month = currentDate.getMonth();
+            document.getElementById('month-year-display').innerText = `${["Jan", "Feb", "März", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"][month]} ${year}`;
+            const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const emptyCells = (firstDay >= 1 && firstDay <= 5) ? firstDay - 1 : 0;
+
+            for (let i = 0; i < emptyCells; i++) grid.innerHTML += `<div class="day-cell empty-cell"></div>`;
+
+            let filteredForCalendar = allBookings;
+            if (currentFilter !== 'Alle') {
+                filteredForCalendar = allBookings.filter(b => (b.status || 'Angefragt') === currentFilter);
+            }
+
+            for (let d = 1; d <= lastDay; d++) {
+                const dateObj = new Date(year, month, d);
+                if (dateObj.getDay() >= 1 && dateObj.getDay() <= 5) {
+                    grid.appendChild(createDayCell(dateObj, filteredForCalendar));
+                }
+            }
+            grid.style.gridTemplateRows = `repeat(${Math.ceil((emptyCells + document.querySelectorAll('.day-cell:not(.empty-cell)').length) / 5)}, minmax(0, 1fr))`;
+        }
+
+        function createDayCell(dateObj, filteredData) {
+            const cell = document.createElement('div'); cell.className = 'day-cell';
+            cell.innerHTML = `<div class="day-header">${dateObj.getDate()}.</div>`;
+            const iso = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+            const isDetailsMode = document.getElementById('booking-details-container').style.display === 'block';
+            const isEditMode = document.getElementById('booking-form-container').style.display === 'block';
+
+            timeSlots.forEach(slot => {
+                const div = document.createElement('div');
+                div.className = 'time-slot';
+
+                const matches = filteredData.filter(b => {
+                    if (b.status === 'Angenommen') return b.final_date === iso && b.final_slot === slot;
+                    if (b.status === 'Abgelehnt') return false;
+                    return (b.main_date === iso && b.main_slot === slot) || (b.alt_date_1 === iso && b.alt_slot_1 === slot) || (b.alt_date_2 === iso && b.alt_slot_2 === slot);
+                });
+
+                const editingSlotIdx = selectedSlots.findIndex(s => s && s.iso === iso && s.slot === slot);
+
+                // Existierende Buchungen anzeigen (max 2)
+                matches.forEach((match, index) => {
+                    const subDiv = document.createElement('div');
+                    subDiv.style.flex = "1";
+                    subDiv.style.display = "flex";
+                    subDiv.style.alignItems = "center";
+                    subDiv.style.justifyContent = "center";
+                    subDiv.style.fontSize = "11px";
+                    subDiv.style.overflow = "hidden";
+                    subDiv.style.cursor = "pointer";
+                    if (index === 0 && matches.length > 1) subDiv.style.borderBottom = "1px solid var(--border-color)";
+
+                    subDiv.innerHTML = `<b>${match.class_name} | ${match.name}</b>`;
+                    subDiv.style.backgroundColor = match.theme.bg;
+                    subDiv.style.color = '#000';
+
+                    if (isDetailsMode && activeBooking && match.id === activeBooking.id) {
+                        subDiv.style.backgroundColor = match.theme.border;
+                        subDiv.style.border = `2px solid ${match.theme.border}`;
+                    } else {
+                        subDiv.style.borderLeft = `4px ${match.status === 'Angenommen' ? 'solid' : 'dashed'} ${match.theme.border}`;
+                    }
+
+                    subDiv.onclick = (e) => { e.stopPropagation(); showDetails(match.id); };
+                    div.appendChild(subDiv);
+                });
+
+                // Wenn weniger als 2 Buchungen da sind, wird der Restplatz angezeigt
+                if (matches.length < 2) {
+                    const freeDiv = document.createElement('div');
+                    freeDiv.style.flex = "1";
+                    freeDiv.style.display = "flex";
+                    freeDiv.style.alignItems = "center";
+                    freeDiv.style.justifyContent = "center";
+                    freeDiv.style.fontSize = "12px";
+                    freeDiv.style.cursor = "pointer";
+
+                    if (matches.length === 1) {
+                        freeDiv.style.borderTop = "1px dashed var(--border-color)";
+                        freeDiv.style.backgroundColor = "#fafafa";
+                    }
+
+                    if (isEditMode && editingSlotIdx > -1) {
+                        freeDiv.style.backgroundColor = 'var(--primary-color)';
+                        freeDiv.style.color = '#fff';
+                        freeDiv.style.fontWeight = 'bold';
+                        freeDiv.innerHTML = matches.length === 0 ? slot : 'Markiert';
+                    } else {
+                        freeDiv.innerHTML = matches.length === 0 ? slot : '<span style="font-size:10px; opacity:0.7;">+ Frei</span>';
+                    }
+
+                    freeDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        if (isEditMode) handleEditSlotSelection(e, iso, slot, dateObj);
+                    };
+                    div.appendChild(freeDiv);
+                }
+
+                cell.appendChild(div);
+            });
+            return cell;
+        }
+
+        function changeMonth(dir) { currentDate.setMonth(currentDate.getMonth() + dir); renderCalendar(); }
+
+        function showDetails(id) {
+            activeBooking = allBookings.find(b => b.id === id);
+            if (!activeBooking) return;
+
+            selectedSlots = [];
+            clearActiveSlot();
+            setPanelLayout('details');
+            renderCalendar();
+
+            document.getElementById('accept-dialog').style.display = 'none';
+            document.getElementById('reject-dialog').style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'block';
+
+            let acceptedInfo = '';
+            if (activeBooking.status === 'Angenommen') {
+                acceptedInfo = `<div style="background:#d4edda; padding:10px; border-radius:5px; margin-bottom:15px; border:1px solid #c3e6cb;"><strong>Festgelegter Termin:</strong> ${formatDate(activeBooking.final_date)} (${activeBooking.final_slot})</div>`;
+            }
+
+            document.getElementById('details-content').innerHTML = `
+                        <div style="border-left: 6px solid ${activeBooking.theme.border}; padding-left: 15px;">
+                            <p><strong>Workshop:</strong> ${activeBooking.workshop_name}</p>
+                            <p><strong>Lehrkraft:</strong> ${activeBooking.name} (${activeBooking.email})</p>
+                            <p><strong>Klasse:</strong> ${activeBooking.class_name}</p>
+                            <p><strong>Bemerkung:</strong> ${activeBooking.topic || '-'}</p>
+
+                            <div style="background:#f3e8fd; padding:15px; border-left:4px solid var(--primary-color); margin: 15px 0; border-radius: 4px;">
+                                <label style="font-weight:bold; color: var(--primary-color); display:block; margin-bottom:5px; font-size:14px;">Interner Kommentar:</label>
+                                <textarea id="details-internal-comment" style="width:100%; height:60px; border:1px solid #c58af9; border-radius:4px; padding:8px; font-family:inherit; resize:vertical;">${activeBooking.internal_comment || ''}</textarea>
+                                <button class="btn btn-primary" style="margin-top:10px; width:auto; padding:6px 15px; font-size:13px;" onclick="quickSaveComment('${activeBooking.id}', this)">Internen Kommentar speichern</button>
+                            </div>
+
+                            <div style="background:#e8f4fd; padding:15px; border-left:4px solid #0056b3; margin: 15px 0; border-radius: 4px;">
+                                <label style="font-weight:bold; color: #0056b3; display:block; margin-bottom:5px; font-size:14px;">Nachricht an Lehrkraft (Zu-/Absage):</label>
+                                <textarea id="details-teacher-message" style="width:100%; height:80px; border:1px solid #99c2e8; border-radius:4px; padding:8px; font-family:inherit; resize:vertical;" placeholder="Nachricht hier hinterlegen...">${activeBooking.teacher_message || ''}</textarea>
+                                <button class="btn btn-primary" style="background:#0056b3; margin-top:10px; width:auto; padding:6px 15px; font-size:13px;" onclick="quickSaveTeacherMessage('${activeBooking.id}', this)">Nachricht speichern</button>
+                            </div>
+
+                            ${acceptedInfo}
+                            <hr style="border:0; border-top: 1px solid #dee2e6; margin: 15px 0;">
+                            <p><strong>Wunschtermine:</strong></p>
+                            <ul style="margin:5px 0; padding-left:20px;">
+                                <li>${formatDate(activeBooking.main_date)} (${activeBooking.main_slot})</li>
+                                <li>${formatDate(activeBooking.alt_date_1)} (${activeBooking.alt_slot_1})</li>
+                                <li>${formatDate(activeBooking.alt_date_2)} (${activeBooking.alt_slot_2})</li>
+                            </ul>
+                        </div>
+                        <div style="margin-top:20px; padding: 10px; text-align:center; ${getStatusColor(activeBooking.status)}"><strong>Status:</strong> ${activeBooking.status || 'Angefragt'}</div>
+                    `;
+        }
+
+        async function quickSaveComment(id, btnElement) {
+            const newText = document.getElementById('details-internal-comment').value;
+            const originalText = btnElement.innerText;
+            btnElement.innerText = "Speichere...";
+            btnElement.disabled = true;
+            const { error } = await supabaseClient.from('workshop_bookings').update({ internal_comment: newText }).eq('id', id);
+            if (error) {
+                showModal("Fehler", error.message);
+                btnElement.innerText = originalText;
+                btnElement.disabled = false;
+            } else {
+                const idx = allBookings.findIndex(b => b.id === id);
+                if (idx > -1) allBookings[idx].internal_comment = newText;
+                btnElement.innerText = "✓ Gespeichert";
+                btnElement.style.backgroundColor = "#28a745";
+                setTimeout(() => {
+                    btnElement.innerText = originalText;
+                    btnElement.disabled = false;
+                    btnElement.style.backgroundColor = "var(--primary-color)";
+                }, 2000);
+            }
+        }
+
+        async function quickSaveTeacherMessage(id, btnElement) {
+            const newText = document.getElementById('details-teacher-message').value;
+            const originalText = btnElement.innerText;
+            btnElement.innerText = "Speichere...";
+            btnElement.disabled = true;
+            const { error } = await supabaseClient.from('workshop_bookings').update({ teacher_message: newText }).eq('id', id);
+            if (error) {
+                showModal("Fehler", error.message);
+                btnElement.innerText = originalText;
+                btnElement.disabled = false;
+            } else {
+                const idx = allBookings.findIndex(b => b.id === id);
+                if (idx > -1) allBookings[idx].teacher_message = newText;
+                btnElement.innerText = "✓ Gespeichert";
+                btnElement.style.backgroundColor = "#28a745";
+                setTimeout(() => {
+                    btnElement.innerText = originalText;
+                    btnElement.disabled = false;
+                    btnElement.style.backgroundColor = "#0056b3";
+                }, 2000);
+            }
+        }
+
+        function showAcceptDialog() {
+            document.getElementById('action-buttons').style.display = 'none';
+            document.getElementById('reject-dialog').style.display = 'none';
+            document.getElementById('accept-dialog').style.display = 'block';
+
+            document.getElementById('label-0').innerText = `${formatDate(activeBooking.main_date)} (${activeBooking.main_slot})`;
+            document.getElementById('radio-0').value = JSON.stringify({ d: activeBooking.main_date, s: activeBooking.main_slot });
+
+            document.getElementById('label-1').innerText = `${formatDate(activeBooking.alt_date_1)} (${activeBooking.alt_slot_1})`;
+            document.getElementById('radio-1').value = JSON.stringify({ d: activeBooking.alt_date_1, s: activeBooking.alt_slot_1 });
+
+            document.getElementById('label-2').innerText = `${formatDate(activeBooking.alt_date_2)} (${activeBooking.alt_slot_2})`;
+            document.getElementById('radio-2').value = JSON.stringify({ d: activeBooking.alt_date_2, s: activeBooking.alt_slot_2 });
+        }
+
+        async function confirmAccept() {
+            const selected = document.querySelector('input[name="finalSlot"]:checked');
+            if (!selected) { showModal("Fehler", "Bitte wähle einen Termin aus."); return; }
+            const final = JSON.parse(selected.value);
+
+            // Speichert den Text aus dem Details-Feld ab, falls er geändert wurde
+            const currentMsg = document.getElementById('details-teacher-message').value.trim();
+
+            const { error } = await supabaseClient.from('workshop_bookings')
+                .update({ status: 'Angenommen', final_date: final.d, final_slot: final.s, teacher_message: currentMsg }).eq('id', activeBooking.id);
+            if (error) { showModal("Fehler", error.message); return; }
+
+            await loadBookings();
+            showDetails(activeBooking.id);
+            showModal("Erfolg", "Status wurde auf Angenommen gesetzt.\nDie Nachricht an die Lehrkraft wurde gespeichert.");
+        }
+
+        function showRejectDialog() {
+            document.getElementById('action-buttons').style.display = 'none';
+            document.getElementById('accept-dialog').style.display = 'none';
+            document.getElementById('reject-dialog').style.display = 'block';
+        }
+
+        async function confirmReject() {
+            const currentMsg = document.getElementById('details-teacher-message').value.trim();
+
+            const { error } = await supabaseClient.from('workshop_bookings')
+                .update({ status: 'Abgelehnt', teacher_message: currentMsg })
+                .eq('id', activeBooking.id);
+
+            if (error) {
+                showModal("Fehler", error.message);
+            } else {
+                await loadBookings();
+                showDetails(activeBooking.id);
+                showModal("Erfolg", "Status wurde auf Abgelehnt gesetzt.\nDie Nachricht an die Lehrkraft wurde gespeichert.");
+            }
+        }
+
+        function informTeacher() {
+            if (!activeBooking) return;
+
+            const msg = activeBooking.teacher_message || "";
+            const currentStatus = activeBooking.status || "Angefragt";
+
+            // Sicherheitssperre, wenn noch kein Text eingegeben wurde
+            if (!msg.trim()) {
+                showModal("Hinweis", "Du hast noch keine Nachricht für die Lehrkraft hinterlegt. Bitte schreibe oben im blauen Kasten erst eine Nachricht und speichere sie.");
+                return;
+            }
+
+            // 1. E-Mail-Betreff generieren
+            const emailSubject = `Rückmeldung Workshop ${activeBooking.workshop_name} Klasse ${activeBooking.class_name}`;
+
+            // 2. E-Mail-Inhalt generieren
+            let emailBody = `Status: ${currentStatus}\n\n`;
+
+            // Wenn der Status "Angenommen" ist und ein finales Datum existiert, fügen wir den Termin hinzu
+            if (currentStatus === 'Angenommen' && activeBooking.final_date) {
+                // Nutzt die bereits in deinem Code existierende formatDate() Funktion
+                emailBody += `Gewählter Termin: ${formatDate(activeBooking.final_date)}\n\n`;
+            }
+
+            emailBody += `Nachricht:\n${msg}\n\n---\nViele Grüße\nDeine Medienscouts`;
+
+            // 3. HTML für die Vorschau im Modal (Zeilenumbrüche für die Ansicht umwandeln)
+            const previewHtml = emailBody.replace(/\n/g, '<br>');
+
+            const modalHtml = `
+                <p>Folgende E-Mail wird an <strong>${activeBooking.email}</strong> gesendet:</p>
+                <p style="margin-bottom: 5px;"><strong>Betreff:</strong> ${emailSubject}</p>
+                <div style="background: #f8f9fa; border: 1px solid #ccc; padding: 15px; border-radius: 4px; margin-bottom: 20px; text-align: left; min-height: 50px;">
+                    ${previewHtml}
+                </div>
+                <p style="margin-bottom:20px; color:#444;">Möchtest du diese Nachricht jetzt endgültig verschicken?</p>
+            `;
+
+            showConfirmModal("E-Mail versenden?", modalHtml, "Ja, E-Mail jetzt senden", "Abbrechen",
+                () => {
+                    // Lade-Ansicht im Modal anzeigen, um doppelte Klicks zu verhindern
+                    const modalTitle = document.getElementById('modal-title');
+                    const modalMsg = document.getElementById('modal-msg');
+                    const modalFooter = document.getElementById('modal-footer');
+
+                    modalTitle.innerText = "Sende E-Mail...";
+                    modalMsg.innerHTML = `<div style="text-align:center; padding: 20px;">Die E-Mail wird über Gmail verschickt. Bitte warten...</div>`;
+                    modalFooter.innerHTML = ``; // Buttons kurz verstecken
+                    document.getElementById('custom-modal-overlay').style.display = 'flex';
+
+                    // Aufruf der Edge Function mit den neuen dynamischen Texten
+                    supabaseClient.functions.invoke('send-email', {
+                        body: {
+                            email: activeBooking.email,
+                            subject: emailSubject,
+                            message: emailBody
+                        }
+                    }).then(({ data, error }) => {
+                        // Fehlerbehandlung
+                        if (error || (data && data.error)) {
+                            const errorMsg = error ? error.message : data.error;
+                            showModal("Fehler beim Versand", "Die E-Mail konnte nicht gesendet werden:\n" + errorMsg);
+                        } else {
+                            // Erfolgsmeldung
+                            showModal("Erfolg", "Die E-Mail wurde erfolgreich versendet!");
+                        }
+                    }).catch((err) => {
+                        showModal("Netzwerkfehler", "Es gab ein Problem bei der Verbindung zum Server:\n" + err.message);
+                    });
+                }
+            );
+        }
+
+        function startNewBooking() {
+            activeBooking = null; // null zeigt an: Erstellen (INSERT) anstatt (UPDATE)
+            setPanelLayout('form');
+            document.getElementById('form-header-title').innerText = "Neue Buchung anlegen";
+            document.getElementById('workshop-form').reset();
+
+            selectedSlots = [];
+            clearActiveSlot();
+            updateEditInputs();
+            renderCalendar();
+        }
+
+        function startEdit() {
+            setPanelLayout('form');
+            document.getElementById('form-header-title').innerText = "Buchung bearbeiten";
+            document.getElementById('workshop-select').value = activeBooking.workshop_id;
+            document.getElementById('name').value = activeBooking.name;
+            document.getElementById('email').value = activeBooking.email;
+            document.getElementById('class').value = activeBooking.class_name;
+            document.getElementById('topic').value = activeBooking.topic || '';
+            document.getElementById('internal-comment').value = activeBooking.internal_comment || '';
+
+            selectedSlots = [
+                { iso: activeBooking.main_date, slot: activeBooking.main_slot, text: `${formatDate(activeBooking.main_date)} (${activeBooking.main_slot})` },
+                { iso: activeBooking.alt_date_1, slot: activeBooking.alt_slot_1, text: `${formatDate(activeBooking.alt_date_1)} (${activeBooking.alt_slot_1})` },
+                { iso: activeBooking.alt_date_2, slot: activeBooking.alt_slot_2, text: `${formatDate(activeBooking.alt_date_2)} (${activeBooking.alt_slot_2})` }
+            ];
+
+            clearActiveSlot();
+            updateEditInputs();
+            renderCalendar();
+        }
+
+        function handleEditSlotSelection(e, iso, slot, dateObj) {
+            const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`;
+            const text = `${dateStr} (${slot})`;
+            const newObj = { iso, slot, text };
+
+            if (activeSlotIndex !== null) {
+                // Nur den manuell fokussierten Slot bearbeiten (funktioniert immer)
+                selectedSlots[activeSlotIndex] = newObj;
+            } else {
+                if (activeBooking) {
+                    // BEARBEITEN -> Strg-Klick deaktiviert! Hinweis zeigen.
+                    showModal("Hinweis", "Bitte klicke zuerst links im Formular auf eines der 3 Wunschtermin-Felder (1., 2. oder 3.), um es gezielt zu ändern.");
+                    return;
+                } else {
+                    // NEU ERSTELLEN -> Strg-Klick aktiviert (wie im normalen Dashboard)
+                    const isMulti = e.ctrlKey || e.metaKey;
+                    const existingIdx = selectedSlots.findIndex(s => s && s.iso === iso && s.slot === slot);
+
+                    if (isMulti) {
+                        if (existingIdx > -1) {
+                            selectedSlots[existingIdx] = null; // Entfernen
+                        } else {
+                            let inserted = false;
+                            for (let i = 0; i < 3; i++) {
+                                if (!selectedSlots[i]) {
+                                    selectedSlots[i] = newObj;
+                                    inserted = true;
+                                    break;
+                                }
+                            }
+                            if (!inserted) showModal("Achtung", "Maximal 3 Termine erlaubt.");
+                        }
+                    } else {
+                        selectedSlots = [newObj, null, null];
+                    }
+                }
+            }
+            updateEditInputs();
+            renderCalendar();
+        }
+
+        function openInternalDatePicker(index) {
+            let currentIso = "";
+            let currentSlot = "1./2. Stunde";
+            if (selectedSlots[index]) {
+                currentIso = selectedSlots[index].iso;
+                currentSlot = selectedSlots[index].slot;
+            }
+
+            const formHtml = `
+                    <div style="text-align: left; margin-top: 10px;">
+                        <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:bold;">Datum:</label>
+                        <input type="date" id="manual-date" value="${currentIso}" style="width: 100%; padding: 8px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 4px;">
+                        <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:bold;">Zeitfenster:</label>
+                        <select id="manual-slot" style="width: 100%; padding: 8px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 4px;">
+                            <option value="1./2. Stunde" ${currentSlot === '1./2. Stunde' ? 'selected' : ''}>1./2. Stunde</option>
+                            <option value="3./4. Stunde" ${currentSlot === '3./4. Stunde' ? 'selected' : ''}>3./4. Stunde</option>
+                            <option value="5./6. Stunde" ${currentSlot === '5./6. Stunde' ? 'selected' : ''}>5./6. Stunde</option>
+                        </select>
+                    </div>
+                `;
+            document.getElementById('modal-title').innerText = `Termin ${index + 1} ändern`;
+            document.getElementById('modal-msg').innerHTML = formHtml;
+
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = `
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('custom-modal-overlay').style.display='none'">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="saveInternalManualDate(${index})">Speichern</button>
+                `;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+
+        function saveInternalManualDate(index) {
+            const dateVal = document.getElementById('manual-date').value;
+            const slotVal = document.getElementById('manual-slot').value;
+            if (!dateVal) { alert("Bitte ein Datum auswählen!"); return; }
+
+            const dateObj = new Date(dateVal);
+            const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`;
+            const text = `${formattedDate} (${slotVal})`;
+
+            while (selectedSlots.length <= index) { selectedSlots.push(null); }
+            selectedSlots[index] = { iso: dateVal, slot: slotVal, text: text };
+
+            updateEditInputs();
+            renderCalendar();
+            document.getElementById('custom-modal-overlay').style.display = 'none';
+        }
+
+        function updateEditInputs() {
+            document.getElementById('alt-0').value = (selectedSlots[0]) ? selectedSlots[0].text : "";
+            document.getElementById('alt-1').value = (selectedSlots[1]) ? selectedSlots[1].text : "";
+            document.getElementById('alt-2').value = (selectedSlots[2]) ? selectedSlots[2].text : "";
+        }
+
+        async function submitForm(e) {
+            if (e) e.preventDefault();
+            if (selectedSlots.length < 3 || !selectedSlots[0] || !selectedSlots[1] || !selectedSlots[2]) {
+                showModal("Fehler", "Es müssen genau 3 Wunschtermine festgelegt sein.");
+                return;
+            }
+
+            const bookingData = {
+                workshop_id: document.getElementById('workshop-select').value,
+                name: document.getElementById('name').value.toUpperCase(),
+                email: document.getElementById('email').value,
+                class_name: document.getElementById('class').value,
+                topic: document.getElementById('topic').value,
+                internal_comment: document.getElementById('internal-comment').value,
+                main_date: selectedSlots[0].iso, main_slot: selectedSlots[0].slot,
+                alt_date_1: selectedSlots[1].iso, alt_slot_1: selectedSlots[1].slot,
+                alt_date_2: selectedSlots[2].iso, alt_slot_2: selectedSlots[2].slot
+            };
+
+            if (activeBooking) {
+                // Bearbeiten -> UPDATE
+                const { error } = await supabaseClient.from('workshop_bookings').update(bookingData).eq('id', activeBooking.id);
+                if (error) { showModal("Fehler", error.message); return; }
+                await loadBookings();
+                activeBooking = allBookings.find(b => b.id === activeBooking.id);
+                showDetails(activeBooking.id);
+            } else {
+                // Neu Erstellen -> INSERT
+                const { error } = await supabaseClient.from('workshop_bookings').insert([bookingData]);
+                if (error) { showModal("Fehler", error.message); return; }
+
+                showModal("Erfolg", "Die neue Buchung wurde erfolgreich im System angelegt.");
+                closePanels();
+                await loadBookings();
+            }
+        }
+
+        initDashboard();
+    </script>
+</body>
+</html>

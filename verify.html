@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code eingeben - Workshop Buchung</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --primary-hover: #004494;
+            --bg-color: #f8f9fa;
+            --border-color: #dee2e6;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .auth-card {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        p.description {
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 24px;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: bold;
+        }
+
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+            .submit-btn:hover {
+                background-color: var(--primary-hover);
+            }
+
+            .submit-btn:disabled {
+                background-color: #888;
+                cursor: not-allowed;
+            }
+
+        /* CUSTOM MODAL POPUP */
+        #custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .custom-modal-box {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+            .custom-modal-box h3 {
+                margin-top: 0;
+                color: var(--primary-color);
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+
+            .custom-modal-box p {
+                font-size: 15px;
+                margin-bottom: 25px;
+                color: #444;
+                line-height: 1.5;
+            }
+
+            .custom-modal-box button {
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                transition: background 0.2s;
+            }
+
+                .custom-modal-box button:hover {
+                    background: var(--primary-hover);
+                }
+    </style>
+</head>
+<body>
+
+    <div class="auth-card">
+        <h2>Code eingeben</h2>
+        <p class="description">Wir haben einen 8-stelligen Code an <br><strong id="display-email"></strong> gesendet.</p>
+
+        <form id="verify-form" onsubmit="verifyCode(event)">
+            <input type="text" id="otp-code" required pattern="\d{8}" maxlength="8" placeholder="12345678" autocomplete="one-time-code">
+            <button type="submit" class="submit-btn" id="verify-btn">Einloggen</button>
+        </form>
+    </div>
+
+    <!-- CUSTOM MODAL (Nur noch für Fehler genutzt) -->
+    <div id="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <h3 id="modal-title">Hinweis</h3>
+            <p id="modal-msg">Nachricht</p>
+            <button id="modal-btn" onclick="hideModal()">Verstanden</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://yrqjgyjsivurlcrwnuhp.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_9diy53NKbmLhqWWkynZ0mg_UMJgtB2e';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const email = sessionStorage.getItem('authEmail');
+        if (!email) { window.location.href = 'index.html'; }
+
+        document.getElementById('display-email').innerText = email;
+
+        function showModalError(title, msg) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerText = msg;
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('custom-modal-overlay').style.display = 'none'; }
+
+        async function verifyCode(event) {
+            event.preventDefault();
+
+            const code = document.getElementById('otp-code').value.trim();
+            const btn = document.getElementById('verify-btn');
+            btn.disabled = true;
+            btn.innerText = "Prüfe Code...";
+
+            const { data, error } = await supabaseClient.auth.verifyOtp({ email: email, token: code, type: 'email' });
+
+            if (error) {
+                console.error(error);
+                showModalError("Fehler", "Der Code ist leider falsch oder bereits abgelaufen. Bitte probiere es noch einmal.");
+                btn.disabled = false;
+                btn.innerText = "Einloggen";
+            } else {
+                sessionStorage.removeItem('authEmail');
+                // Kein Popup mehr - direkter Redirect!
+                window.location.href = 'dashboard.html';
+            }
+        }
+    </script>
+</body>
+</html>
