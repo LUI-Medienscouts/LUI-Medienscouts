@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -439,6 +439,9 @@
             border-radius: 8px;
             max-width: 450px;
             width: 90%;
+            max-height: 90vh; /* NEU: Maximale Höhe auf 90% des Bildschirms begrenzen */
+            display: flex; /* NEU: Flexbox verwenden */
+            flex-direction: column; /* NEU: Elemente untereinander anordnen */
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
@@ -446,6 +449,7 @@
             .custom-modal-box h3 {
                 margin-top: 0;
                 color: var(--primary-color);
+                flex-shrink: 0; /* NEU: Titel nicht stauchen */
             }
 
             .custom-modal-box p, .custom-modal-box div#modal-msg {
@@ -455,10 +459,17 @@
                 color: #444;
             }
 
+            .custom-modal-box div#modal-msg {
+                overflow-y: auto; /* NEU: Scrollbar hinzufügen, wenn Text zu lang ist */
+                flex: 1; /* NEU: Nimmt den gesamten mittleren Platz ein */
+                padding-right: 5px; /* Etwas Abstand für die Scrollbar */
+            }
+
         .modal-buttons {
             display: flex;
             gap: 10px;
             justify-content: center;
+            flex-shrink: 0; /* NEU: Buttons unten bleiben immer in ihrer vollen Größe erhalten */
         }
 
             .modal-buttons button {
@@ -1148,8 +1159,8 @@
 
             // Wenn der Status "Angenommen" ist und ein finales Datum existiert, fügen wir den Termin hinzu
             if (currentStatus === 'Angenommen' && activeBooking.final_date) {
-                // Nutzt die bereits in deinem Code existierende formatDate() Funktion
-                emailBody += `Gewählter Termin: ${formatDate(activeBooking.final_date)}\n\n`;
+                // Nutzt die bereits in deinem Code existierende formatDate() Funktion und fügt den Slot hinzu
+                emailBody += `Gewählter Termin: ${formatDate(activeBooking.final_date)} (${activeBooking.final_slot})\n\n`;
             }
 
             emailBody += `Nachricht:\n${msg}\n\n---\nViele Grüße\nDeine Medienscouts`;
@@ -1174,7 +1185,7 @@
                     const modalFooter = document.getElementById('modal-footer');
 
                     modalTitle.innerText = "Sende E-Mail...";
-                    modalMsg.innerHTML = `<div style="text-align:center; padding: 20px;">Die E-Mail wird über Gmail verschickt. Bitte warten...</div>`;
+                    modalMsg.innerHTML = `<div style="text-align:center; padding: 20px;">Die E-Mail wird verschickt. Bitte warten...</div>`;
                     modalFooter.innerHTML = ``; // Buttons kurz verstecken
                     document.getElementById('custom-modal-overlay').style.display = 'flex';
 
