@@ -12,14 +12,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Query Supabase Table
+      - name: Generate real Database Activity
         run: |
-          echo "Frage Tabelle ab, um echte Datenbankaktivität zu erzeugen..."
+          echo "Sende Schreibzugriff (UPSERT) an Supabase, um Inaktivität zu verhindern..."
           
-          # Der curl-Befehl fragt exakt 1 Zeile (?select=*&limit=1) aus deiner Tabelle ab.
-          # Bitte "DEINE_TABELLE" im Link durch einen echten Tabellennamen ersetzen!
+          # Erzeuge den aktuellen Zeitstempel (ISO 8601 Format)
+          CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
+          # Führt einen UPSERT auf der "keep_alive" Tabelle aus.
+          # Das garantiert eine echte Datenbank-Schreiboperation, ohne neue Zeilen zu stapeln.
           curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
-          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/memeList?select=*&limit=1"
+          -X POST \
+          -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          -H "Content-Type: application/json" \
+          -H "Prefer: resolution=merge-duplicates" \
+          -d "{\"id\": 1, \"last_ping\": \"$CURRENT_TIME\"}" \
+          "${{ secrets.SUPABASE_URL }}/rest/v1/memeList"
