@@ -28,4 +28,4 @@ jobs:
           -H "Content-Type: application/json" \
           -H "Prefer: resolution=merge-duplicates" \
           -d "{\"id\": 1, \"last_ping\": \"$CURRENT_TIME\"}" \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/memeList"
+          "${{ secrets.SUPABASE_URL }}/rest/v1/memelist"
