@@ -3,7 +3,7 @@ name: Supabase Keep Alive
 on:
   schedule:
     # Führt das Skript jeden Tag um 08:00 Uhr UTC aus
-    - cron: '0 8 1 * *'
+    - cron: '0 8 * * *'
   # Erlaubt es, das Skript manuell über einen Button zu starten
   workflow_dispatch:
 
