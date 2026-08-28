@@ -2,7 +2,7 @@ name: Supabase Keep Alive
 
 on:
   schedule:
-    # 17 statt 0 Minuten: Vermeidet die Server-Überlastung bei GitHub Actions zur vollen Stunde
+    # Um 08:17 Uhr UTC (Vermeidet GitHub Action Stau zur vollen Stunde)
     - cron: '17 8 * * *'
   workflow_dispatch:
 
@@ -11,33 +11,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Generate real Database Activity
+      - name: Insert Ping and Cleanup Old Records
         run: |
-          echo "Sende Schreibzugriff (UPSERT) an Supabase..."
-          
+          # --- KONFIGURATION ---
+          # Trage hier den Namen deiner Supabase-Tabelle ein
+          TABLE_NAME="memelist"
+          # ---------------------
+
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          # Berechnet das Datum von vor exakt 30 Tagen im selben ISO-Format
+          THIRTY_DAYS_AGO=$(date -d "30 days ago" -u +"%Y-%m-%dT%H:%M:%SZ")
           
-          # Führt den REST-Aufruf aus und speichert den HTTP-Statuscode direkt am Ende
-          RESPONSE=$(curl -s -w "%{http_code}" \
+          echo "=== SCHRITT 1: Führe normalen INSERT aus ($CURRENT_TIME) ==="
+          
+          # Wir senden keine "id" mehr mit. Supabase sollte die ID für neue Zeilen automatisch generieren.
+          RESPONSE_INSERT=$(curl -s -w "%{http_code}" \
             -X POST \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
-            -H "Prefer: resolution=merge-duplicates" \
-            -d "{\"id\": 1, \"last_ping\": \"$CURRENT_TIME\"}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/memelist?on_conflict=id")
+            -d "{\"last_ping\": \"$CURRENT_TIME\"}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/$TABLE_NAME")
             
-          # Trennt den Body von dem 3-stelligen HTTP-Statuscode
-          HTTP_STATUS=${RESPONSE: -3}
-          BODY=${RESPONSE::-3}
+          HTTP_STATUS_INSERT=${RESPONSE_INSERT: -3}
+          BODY_INSERT=${RESPONSE_INSERT::-3}
           
-          echo "HTTP Status: $HTTP_STATUS"
-          echo "Antwort der Datenbank: $BODY"
+          echo "HTTP Status (INSERT): $HTTP_STATUS_INSERT"
           
-          # Lässt die GitHub Action "fehlschlagen", wenn Supabase einen Fehler wirft (z.B. 400, 401, 404)
-          if [ "$HTTP_STATUS" -ge 400 ]; then
-            echo "FEHLER: Supabase hat den Schreibzugriff abgelehnt!"
+          if [ "$HTTP_STATUS_INSERT" -ge 400 ]; then
+            echo "FEHLER: Supabase hat den INSERT abgelehnt! Antwort: $BODY_INSERT"
             exit 1
           fi
+          echo "INSERT erfolgreich!"
           
-          echo "Ping erfolgreich in der Datenbank vermerkt!"
+          echo " "
+          echo "=== SCHRITT 2: Lösche Einträge älter als 30 Tage ($THIRTY_DAYS_AGO) ==="
+          
+          # Nutzt den PostgREST Filter "?last_ping=lt.<datum>" (lt = less than)
+          RESPONSE_DELETE=$(curl -s -w "%{http_code}" \
+            -X DELETE \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/$TABLE_NAME?last_ping=lt.$THIRTY_DAYS_AGO")
+            
+          HTTP_STATUS_DELETE=${RESPONSE_DELETE: -3}
+          BODY_DELETE=${RESPONSE_DELETE::-3}
+          
+          echo "HTTP Status (DELETE): $HTTP_STATUS_DELETE"
+          
+          if [ "$HTTP_STATUS_DELETE" -ge 400 ]; then
+            echo "FEHLER: Supabase hat das DELETE abgelehnt! Antwort: $BODY_DELETE"
+            exit 1
+          fi
+          echo "Bereinigung erfolgreich!"
