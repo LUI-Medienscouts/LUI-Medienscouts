@@ -2,9 +2,8 @@ name: Supabase Keep Alive
 
 on:
   schedule:
-    # Führt das Skript jeden Tag um 08:00 Uhr UTC aus
-    - cron: '0 8 * * *'
-  # Erlaubt es, das Skript manuell über einen Button zu starten
+    # 17 statt 0 Minuten: Vermeidet die Server-Überlastung bei GitHub Actions zur vollen Stunde
+    - cron: '17 8 * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,18 +13,32 @@ jobs:
     steps:
       - name: Generate real Database Activity
         run: |
-          echo "Sende Schreibzugriff (UPSERT) an Supabase, um Inaktivität zu verhindern..."
+          echo "Sende Schreibzugriff (UPSERT) an Supabase..."
           
-          # Erzeuge den aktuellen Zeitstempel (ISO 8601 Format)
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
-          # Führt einen UPSERT auf der "keep_alive" Tabelle aus.
-          # Das garantiert eine echte Datenbank-Schreiboperation, ohne neue Zeilen zu stapeln.
-          curl -s -w "\nHTTP Status: %{http_code}\n" \
-          -X POST \
-          -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-          -H "Content-Type: application/json" \
-          -H "Prefer: resolution=merge-duplicates" \
-          -d "{\"id\": 1, \"last_ping\": \"$CURRENT_TIME\"}" \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/memelist?on_conflict=id"
+          # Führt den REST-Aufruf aus und speichert den HTTP-Statuscode direkt am Ende
+          # ACHTUNG: Prüfe, ob deine Tabelle wirklich "keep_alive" oder "memelist" heißt!
+          RESPONSE=$(curl -s -w "%{http_code}" \
+            -X POST \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            -d "{\"id\": 1, \"last_ping\": \"$CURRENT_TIME\"}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/keep_alive?on_conflict=id")
+            
+          # Trennt den Body von dem 3-stelligen HTTP-Statuscode
+          HTTP_STATUS=${RESPONSE: -3}
+          BODY=${RESPONSE::-3}
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Antwort der Datenbank: $BODY"
+          
+          # Lässt die GitHub Action "fehlschlagen", wenn Supabase einen Fehler wirft (z.B. 400, 401, 404)
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "FEHLER: Supabase hat den Schreibzugriff abgelehnt!"
+            exit 1
+          fi
+          
+          echo "Ping erfolgreich in der Datenbank vermerkt!"
