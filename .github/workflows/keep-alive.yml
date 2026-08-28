@@ -18,7 +18,6 @@ jobs:
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
           # Führt den REST-Aufruf aus und speichert den HTTP-Statuscode direkt am Ende
-          # ACHTUNG: Prüfe, ob deine Tabelle wirklich "keep_alive" oder "memelist" heißt!
           RESPONSE=$(curl -s -w "%{http_code}" \
             -X POST \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
@@ -26,7 +25,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Prefer: resolution=merge-duplicates" \
             -d "{\"id\": 1, \"last_ping\": \"$CURRENT_TIME\"}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/keep_alive?on_conflict=id")
+            "${{ secrets.SUPABASE_URL }}/rest/v1/memelist?on_conflict=id")
             
           # Trennt den Body von dem 3-stelligen HTTP-Statuscode
           HTTP_STATUS=${RESPONSE: -3}
