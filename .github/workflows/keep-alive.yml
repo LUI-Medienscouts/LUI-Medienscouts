@@ -64,3 +64,6 @@ jobs:
             exit 1
           fi
           echo "Bereinigung erfolgreich!"
+    
+      - name: Keepalive Workflow
+        uses: gautamkrishnar/keepalive-workflow@v2
