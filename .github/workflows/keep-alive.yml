@@ -6,11 +6,19 @@ on:
     - cron: '17 8 * * *'
   workflow_dispatch:
 
+# WICHTIG: Erlaubt dem Bot, die Änderung ins Repository zu pushen
+permissions:
+  contents: write
+
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
 
     steps:
+      # WICHTIG: Code muss ausgecheckt werden, damit der Bot committen kann
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
       - name: Insert Ping and Cleanup Old Records
         run: |
           # --- KONFIGURATION ---
@@ -65,5 +73,21 @@ jobs:
           fi
           echo "Bereinigung erfolgreich!"
     
-      - name: Keepalive Workflow
-        uses: gautamkrishnar/keepalive-workflow@v2
+      # Dieser Schritt ersetzt die blockierte Drittanbieter-Action
+      - name: Update Timestamp & Commit (Keepalive)
+        run: |
+          # 1. Schreibe das aktuelle Datum in eine Log-Datei
+          date > last_ping.txt
+          
+          # 2. Konfiguriere Git für den GitHub Actions Bot
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 3. Füge die Änderung hinzu
+          git add last_ping.txt
+          
+          # 4. Erstelle einen Commit (nur wenn sich etwas geändert hat)
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: update ping timestamp to keep repo active"
+          
+          # 5. Pushe die Änderung in dein Repository
+          git push
