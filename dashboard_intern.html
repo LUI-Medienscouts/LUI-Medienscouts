@@ -257,6 +257,18 @@
             transition: transform 0.1s;
         }
 
+        .ws-action-icon {
+            font-size: 13px;
+            margin-left: 6px;
+            opacity: 0.5;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .ws-action-icon:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
         .add-workshop-btn {
             cursor: pointer;
             background: #eee;
@@ -439,9 +451,9 @@
             border-radius: 8px;
             max-width: 450px;
             width: 90%;
-            max-height: 90vh; /* NEU: Maximale Höhe auf 90% des Bildschirms begrenzen */
-            display: flex; /* NEU: Flexbox verwenden */
-            flex-direction: column; /* NEU: Elemente untereinander anordnen */
+            max-height: 90vh; 
+            display: flex; 
+            flex-direction: column; 
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
@@ -449,7 +461,7 @@
             .custom-modal-box h3 {
                 margin-top: 0;
                 color: var(--primary-color);
-                flex-shrink: 0; /* NEU: Titel nicht stauchen */
+                flex-shrink: 0; 
             }
 
             .custom-modal-box p, .custom-modal-box div#modal-msg {
@@ -460,16 +472,16 @@
             }
 
             .custom-modal-box div#modal-msg {
-                overflow-y: auto; /* NEU: Scrollbar hinzufügen, wenn Text zu lang ist */
-                flex: 1; /* NEU: Nimmt den gesamten mittleren Platz ein */
-                padding-right: 5px; /* Etwas Abstand für die Scrollbar */
+                overflow-y: auto; 
+                flex: 1; 
+                padding-right: 5px; 
             }
 
         .modal-buttons {
             display: flex;
             gap: 10px;
             justify-content: center;
-            flex-shrink: 0; /* NEU: Buttons unten bleiben immer in ihrer vollen Größe erhalten */
+            flex-shrink: 0; 
         }
 
             .modal-buttons button {
@@ -624,8 +636,13 @@
             const footer = document.getElementById('modal-footer');
             footer.innerHTML = `
                         <button class="btn btn-secondary" onclick="closeConfirmModal(false)">${cancelText}</button>
-                        <button class="btn btn-primary" onclick="closeConfirmModal(true)">${confirmText}</button>
+                        <button class="btn btn-danger" id="confirm-modal-btn" onclick="closeConfirmModal(true)">${confirmText}</button>
                     `;
+            
+            // Falls es keine destructive Aktion ist, Button-Farbe anpassen
+            if(confirmText !== "Löschen" && confirmText.indexOf("löschen") === -1 && confirmText.indexOf("Löschen") === -1) {
+                document.getElementById('confirm-modal-btn').className = "btn btn-primary";
+            }
 
             window.modalCallback = function (result) {
                 document.getElementById('custom-modal-overlay').style.display = 'none';
@@ -700,7 +717,14 @@
                     itemDiv.className = 'legend-item';
                     itemDiv.title = 'Workshop bearbeiten (Klick)';
                     itemDiv.onclick = () => openEditWorkshopDialog(w.id, w.name, hex);
-                    itemDiv.innerHTML = `<span class="legend-color" style="background-color:${hex};"></span> ${w.name}`;
+                    
+                    // Neu: Stift und X Icon eingebaut
+                    itemDiv.innerHTML = `
+                        <span class="legend-color" style="background-color:${hex};"></span> 
+                        <span>${w.name}</span>
+                        <span class="ws-action-icon" title="Umbenennen / Bearbeiten">✏️</span>
+                        <span class="ws-action-icon" onclick="event.stopPropagation(); confirmDeleteWorkshop('${w.id}', '${w.name}')" title="Workshop löschen">❌</span>
+                    `;
 
                     legend.appendChild(itemDiv);
                 });
@@ -709,6 +733,42 @@
                 addBtnDiv.innerHTML = `<button class="add-workshop-btn" onclick="openAddWorkshopDialog()">+ Workshop hinzufügen</button>`;
                 legend.appendChild(addBtnDiv);
             }
+        }
+
+        function confirmDeleteWorkshop(id, name) {
+            showConfirmModal(
+                "Workshop löschen?",
+                `Möchtest du den Workshop "${name}" wirklich löschen?\n\n⚠️ Achtung: Diese Aktion ist NICHT zurücksetzbar. Alle Anfragen und Buchungen, die mit diesem Workshop verknüpft sind, werden ebenfalls unwiderruflich gelöscht!`,
+                "Ja, Löschen", "Abbrechen",
+                () => executeDeleteWorkshop(id),
+                null
+            );
+        }
+
+        async function executeDeleteWorkshop(id) {
+            // Erst alle dazugehörigen Buchungen kaskadierend löschen, um FK-Fehler zu vermeiden
+            const { error: bookingError } = await supabaseClient.from('workshop_bookings').delete().eq('workshop_id', id);
+            if (bookingError) {
+                showModal("Fehler", "Die verknüpften Buchungen konnten nicht gelöscht werden: " + bookingError.message);
+                return;
+            }
+
+            // Danach den eigentlichen Workshop löschen
+            const { error: wsError } = await supabaseClient.from('workshops').delete().eq('id', id);
+            if (wsError) {
+                showModal("Fehler", "Der Workshop konnte nicht gelöscht werden: " + wsError.message);
+                return;
+            }
+
+            // Wenn die aktuell offene Buchung zu diesem gelöschten Workshop gehörte, Detail-Ansicht schließen
+            if (activeBooking && activeBooking.workshop_id === id) {
+                closePanels();
+            }
+
+            // Daten neu laden
+            await loadWorkshops();
+            await loadBookings();
+            showModal("Erfolgreich gelöscht", "Der Workshop und alle zugehörigen Buchungen wurden erfolgreich entfernt.");
         }
 
         function openAddWorkshopDialog() {
